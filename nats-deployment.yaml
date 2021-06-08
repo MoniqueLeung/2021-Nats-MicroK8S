@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  labels:
+    app: nats
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: nats
+    tier: frontend
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nats-pv-claim
+  labels:
+    app: nats
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nats
+  labels:
+    app: nats
+spec:
+  selector:
+    matchLabels:
+      app: nats
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: nats
+        tier: frontend
+    spec:
+      containers:
+      - image: nats:2.2.6-alpine3.13
+        name: nats
+        env:
+        - name: NATS_DB_HOST
+          value: nats-mysql
+        - name: NATS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        ports:
+        - containerPort: 80
+          name: nats
+        volumeMounts:
+        - name: nats-persistent-storage
+          mountPath: /var/www/html
+      volumes:
+      - name: nats-persistent-storage
+        persistentVolumeClaim:
+          claimName: nats-pv-claim
